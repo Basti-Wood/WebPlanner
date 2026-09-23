@@ -12,6 +12,7 @@ const { startScheduler } = require('./scheduler');
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const BASE_URL = String(process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
+const GOOGLE_CALLBACK_URL = BASE_URL + '/auth/google/callback';
 /* Bump this whenever styles change — it forces browsers to refetch main.css. */
 const APP_VERSION = '1.5.0';
 
@@ -333,44 +334,43 @@ app.post('/register', (req, res, next) => {
   req.login(user, (e) => (e ? next(e) : res.redirect('/home')));
 });
 
-/* Host part of BASE_URL ('' when unset or invalid). */
-function baseUrlHost() {
-  try { return new URL(String(process.env.BASE_URL || '')).host; } catch (_) { return ''; }
-}
-
 app.get('/auth/google', (req, res, next) => {
+  console.log(`[google] login requested (host=${req.get('host') || '-'}, protocol=${req.protocol}, forwarded-proto=${req.get('x-forwarded-proto') || '-'})`);
   if (!googleEnabled) {
+    console.error('[google] login requested, but GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing');
     setFlash(req, 'error', 'Google login is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.');
     return res.redirect('/login');
   }
-  /* Build the OAuth redirect_uri for THIS request. Normally it comes from
-     BASE_URL, but if BASE_URL still points at localhost (a .env copied from
-     a dev machine), Google would reject the login with redirect_uri_mismatch.
-     In that case fall back to the host the user is actually browsing, so the
-     redirect_uri matches the URL registered in Google Cloud Console. */
-  const requestHost = String(req.get('host') || '');
-  const configuredHost = baseUrlHost();
-  const localHost = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|::1)(:\d+)?$/i;
-  const callbackBase = (!configuredHost || (localHost.test(configuredHost) && requestHost && !localHost.test(requestHost)))
-    ? `${req.protocol}://${requestHost}`
-    : BASE_URL;
-  const callbackURL = callbackBase.replace(/\/+$/, '') + '/auth/google/callback';
-  console.log(`[auth] Google authorize → redirect_uri: ${callbackURL}`);
-  passport.authenticate('google', { scope: ['profile', 'email'], callbackURL })(req, res, next);
+  /* Google requires this redirect_uri to match both the Cloud Console entry
+     and the redirect_uri used later while exchanging the authorization code. */
+  console.log(`[google] redirecting to Google (redirect_uri=${GOOGLE_CALLBACK_URL})`);
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+    callbackURL: GOOGLE_CALLBACK_URL
+  })(req, res, next);
 });
 
 app.get('/auth/google/callback', (req, res, next) => {
-  passport.authenticate('google', (err, user, info) => {
+  console.log(`[google] callback received (error=${req.query.error || 'none'}, code=${req.query.code ? 'present' : 'missing'})`);
+  passport.authenticate('google', { callbackURL: GOOGLE_CALLBACK_URL }, (err, user, info) => {
     if (err) {
       console.error('[google] callback error:', err && err.stack ? err.stack : err);
-      return next(err);
+      setFlash(req, 'error', 'Google sign-in failed: ' + (err.message || 'unknown error'));
+      return res.redirect('/login');
     }
     if (!user) {
       console.error('[google] authentication failed:', info);
       setFlash(req, 'error', 'Google sign-in failed: ' + (info && info.message ? info.message : 'unknown reason'));
       return res.redirect('/login');
     }
-    req.logIn(user, (e) => (e ? next(e) : res.redirect('/home')));
+    req.logIn(user, (e) => {
+      if (e) {
+        console.error('[google] session login failed:', e && e.stack ? e.stack : e);
+        return next(e);
+      }
+      console.log(`[google] login succeeded for user ${user.id}`);
+      return res.redirect('/home');
+    });
   })(req, res, next);
 });
 
@@ -724,6 +724,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`[server] Planner listening on http://0.0.0.0:${PORT}`);
   console.log(`[server] Public URL (BASE_URL): ${BASE_URL}`);
   console.log(`[server] Google login: ${googleEnabled ? 'enabled' : 'disabled'}`);
+  if (googleEnabled) console.log(`[server] Google callback URL: ${GOOGLE_CALLBACK_URL}`);
   if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === 'dev-secret-change-me') {
     console.warn('[server] WARNING: SESSION_SECRET is not set — set a strong secret in .env');
   }
