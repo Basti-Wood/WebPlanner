@@ -48,6 +48,21 @@ Your data (SQLite database) lives in the `planner_data` Docker volume, so it sur
 
 If unset, the Google button is hidden and email/password login still works.
 
+### Can't log in on your server? (works locally, fails on the server)
+
+The most common causes, in order:
+
+1. **`BASE_URL` is wrong on the server.** It must be the URL you open in the browser, e.g. `BASE_URL=https://planner.bastiwood.com`. If you copied your local `.env` to the server it may still say `http://localhost:3030`, which makes Google redirect the browser to *your* machine and breaks the OAuth callback. Check what the container actually uses:
+   ```bash
+   docker compose logs planner | grep 'Public URL'
+   ```
+2. **The Google redirect URI isn't registered.** In Google Cloud Console → your OAuth client → *Authorized redirect URIs*, add `https://planner.bastiwood.com/auth/google/callback` (must match `BASE_URL` exactly). Also make sure your OAuth consent screen is **published** (or your account is listed as a test user). If you see Google's `redirect_uri_mismatch` error page, this is it.
+3. **The proxy forwards HTTPS correctly.** Caddy/Nginx must terminate TLS and forward requests to the container (the app trusts one proxy hop and sets the `Secure` cookie accordingly). If you open the site over plain `http://` while the cookie is `Secure`, the browser drops it and logins loop back to the login page.
+4. **The database volume is writable.** `docker compose logs planner` — if you see `[session-store] set error`, the `planner_data` volume is not writable by the `node` user.
+5. **The account really exists on the server.** The server has its own SQLite database — accounts created locally aren't on the server. Register again on the server.
+
+After changing `.env`, rebuild/restart: `docker compose up -d --build`. Failed local logins are logged (`[auth] local login failed for …`), so `docker compose logs -f planner` will tell you exactly why a login was rejected.
+
 ### Deadline emails (optional)
 
 Set these in `.env` to send real emails through any SMTP server:

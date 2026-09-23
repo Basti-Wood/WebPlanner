@@ -21,7 +21,7 @@ class SqliteSessionStore extends session.Store {
     try {
       const row = db.prepare('SELECT data FROM sessions WHERE sid = ? AND expires > ?').get(sid, Date.now());
       cb(null, row ? JSON.parse(row.data) : null);
-    } catch (err) { cb(err); }
+    } catch (err) { console.error('[session-store] get error:', err.message); cb(err); }
   }
 
   set(sid, sess, cb) {
@@ -31,14 +31,19 @@ class SqliteSessionStore extends session.Store {
         'INSERT INTO sessions (sid, data, expires) VALUES (?, ?, ?) ON CONFLICT(sid) DO UPDATE SET data = excluded.data, expires = excluded.expires'
       ).run(sid, JSON.stringify(sess), expires);
       cb(null);
-    } catch (err) { cb(err); }
+    } catch (err) {
+      /* If this fails (e.g. the data volume is read-only), users get logged
+         in and immediately bounced back to /login — log it loudly. */
+      console.error('[session-store] set error:', err.message);
+      cb(err);
+    }
   }
 
   destroy(sid, cb) {
     try {
       db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid);
       cb(null);
-    } catch (err) { cb(err); }
+    } catch (err) { console.error('[session-store] destroy error:', err.message); cb(err); }
   }
 
   touch(sid, sess, cb) {
@@ -46,7 +51,7 @@ class SqliteSessionStore extends session.Store {
       const expires = Date.now() + (sess.cookie && sess.cookie.maxAge ? sess.cookie.maxAge : 24 * 3600 * 1000);
       db.prepare('UPDATE sessions SET expires = ? WHERE sid = ?').run(expires, sid);
       cb(null);
-    } catch (err) { cb(err); }
+    } catch (err) { console.error('[session-store] touch error:', err.message); cb(err); }
   }
 }
 
@@ -60,7 +65,10 @@ const sessionMiddleware = session({
     httpOnly: true,
     sameSite: 'lax',
     maxAge: 30 * 24 * 3600 * 1000,
-    secure: String(process.env.BASE_URL || '').startsWith('https://')
+    /* 'auto' sets the Secure flag whenever the request arrived over HTTPS
+       (through the reverse proxy — see `trust proxy` in server.js). This
+       works both behind a TLS-terminating proxy and when hit directly. */
+    secure: 'auto'
   }
 });
 
@@ -85,6 +93,7 @@ function initPassport() {
   if (googleEnabled) {
     const GoogleStrategy = require('passport-google-oauth20').Strategy;
     const base = String(process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
+    console.log(`[auth] Google OAuth callback URL: ${base}/auth/google/callback`);
     passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,

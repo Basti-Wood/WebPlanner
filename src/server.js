@@ -19,6 +19,11 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 app.disable('x-powered-by');
 
+/* The app normally sits behind a reverse proxy (Caddy/Nginx) that terminates
+   TLS. Trust one proxy hop so `req.secure` / `req.protocol` reflect HTTPS —
+   this is what makes the Secure session cookie work behind the proxy. */
+app.set('trust proxy', 1);
+
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: '1d' }));
@@ -289,6 +294,7 @@ app.post('/login', (req, res, next) => {
   passport.authenticate('local', (err, user, info) => {
     if (err) return next(err);
     if (!user) {
+      console.warn('[auth] local login failed for', normEmail(req.body.email), '—', (info && info.message) || 'unknown reason');
       setFlash(req, 'error', (info && info.message) || 'Invalid email or password.');
       return res.redirect('/login');
     }
@@ -315,8 +321,14 @@ app.post('/register', (req, res, next) => {
   if (db.prepare('SELECT id FROM users WHERE email = ?').get(email)) return fail('An account with this email already exists — try logging in.');
 
   const hash = bcrypt.hashSync(password, 10);
-  const info = db.prepare('INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)')
-    .run(email, name.slice(0, 60), hash);
+  let info;
+  try {
+    info = db.prepare('INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)')
+      .run(email, name.slice(0, 60), hash);
+  } catch (err) {
+    console.error('[auth] registration failed:', err.message);
+    return fail('Registration failed — please try again.');
+  }
   const user = { id: info.lastInsertRowid, email, name: name.slice(0, 60) };
   req.login(user, (e) => (e ? next(e) : res.redirect('/home')));
 });
@@ -692,6 +704,8 @@ app.use((err, req, res, next) => {
 startScheduler();
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[server] Planner listening on http://0.0.0.0:${PORT}`);
+  console.log(`[server] Public URL (BASE_URL): ${BASE_URL}`);
+  console.log(`[server] Google login: ${googleEnabled ? 'enabled' : 'disabled'}`);
   if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === 'dev-secret-change-me') {
     console.warn('[server] WARNING: SESSION_SECRET is not set — set a strong secret in .env');
   }
