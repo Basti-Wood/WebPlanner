@@ -1,0 +1,83 @@
+<%- include('partials/head') %>
+<%- include('partials/nav') %>
+<main class="mx-auto max-w-5xl px-4 pb-16">
+  <div class="pt-4"><%- include('partials/flash') %></div>
+
+  <!-- overall progress -->
+  <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div class="flex flex-wrap items-center gap-6">
+      <div>
+        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">All tasks</p>
+        <p class="mt-1 text-4xl font-bold text-slate-900 dark:text-white"><%= pct(overall.done, overall.total) %>%</p>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400"><%= overall.done %> of <%= overall.total %> tasks done · <%= overall.total - overall.done %> open</p>
+      </div>
+      <div class="min-w-[200px] flex-1">
+        <div class="h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+          <div class="h-full rounded-full bg-indigo-500" style="width: <%= pct(overall.done, overall.total) %>%"></div>
+        </div>
+      </div>
+      <a href="/calendar" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Open calendar →</a>
+    </div>
+  </section>
+
+  <!-- upcoming deadlines -->
+  <% if (upcoming.length) { %>
+  <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Upcoming &amp; overdue</h2>
+    <ul class="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
+      <% upcoming.forEach(t => { %>
+      <li class="flex items-center gap-3 py-2 text-sm">
+        <span class="whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium <%= t.overdue ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' %>"><%= t.overdue ? 'overdue' : 'due' %></span>
+        <a href="/tabs/<%= t.tab_id %>" class="min-w-0 flex-1 truncate font-medium text-slate-800 hover:underline dark:text-slate-200"><%= t.title %></a>
+        <span class="whitespace-nowrap text-xs text-slate-400 dark:text-slate-500"><%= t.tab_name %> · <%= t.dueLabel %></span>
+      </li>
+      <% }) %>
+    </ul>
+  </section>
+  <% } %>
+
+  <!-- tabs -->
+  <section class="mt-6">
+    <div class="flex items-center justify-between">
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">My tabs</h2>
+      <span class="text-sm text-slate-400 dark:text-slate-500"><%= tabs.length %> <%= tabs.length === 1 ? 'tab' : 'tabs' %></span>
+    </div>
+    <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">Tip: drag one tab onto another to group them.</p>
+    <% if (!tabs.length) { %>
+      <div class="mt-3 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+        No tabs yet. Create your first one below — e.g. “PC tasks” or “Household”.
+      </div>
+    <% } else { %>
+      <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <% tabTree.forEach(tab => { %>
+        <%- include('partials/tab-card', { tab: tab }) %>
+        <% }) %>
+      </div>
+    <% } %>
+  </section>
+
+  <!-- new tab -->
+  <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">New tab</h2>
+    <form method="post" action="/tabs" class="mt-3 flex flex-wrap items-end gap-3">
+      <div class="min-w-[180px] flex-1">
+        <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Name</label>
+        <input type="text" name="name" maxlength="40" required placeholder="e.g. Household" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Color</label>
+        <div class="flex gap-2 pb-0.5">
+          <% TAB_COLORS.forEach(c => { %>
+          <label class="cursor-pointer">
+            <input type="radio" name="color" value="<%= c %>" <%= c === 'indigo' ? 'checked' : '' %> class="peer sr-only">
+            <span class="block h-6 w-6 rounded-full border-2 border-transparent peer-checked:border-slate-900 dark:peer-checked:border-white
+              <% if (c === 'indigo') { %>bg-indigo-500<% } else if (c === 'emerald') { %>bg-emerald-500<% } else if (c === 'rose') { %>bg-rose-500<% } else if (c === 'amber') { %>bg-amber-500<% } else if (c === 'sky') { %>bg-sky-500<% } else { %>bg-violet-500<% } %>"></span>
+          </label>
+          <% }) %>
+        </div>
+      </div>
+      <button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Create tab</button>
+    </form>
+  </section>
+</main>
+<%- include('partials/footer') %>

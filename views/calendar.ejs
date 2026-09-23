@@ -1,0 +1,97 @@
+<%- include('partials/head') %>
+<%- include('partials/nav') %>
+<main class="mx-auto max-w-5xl px-4 pb-16">
+  <div class="pt-4"><%- include('partials/flash') %></div>
+
+  <header class="mt-6 flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">📆 <%= monthLabel %></h1>
+    <div class="flex items-center gap-2">
+      <a href="<%= prevLink %>" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800" title="Previous month">←</a>
+      <a href="/calendar" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Today</a>
+      <a href="<%= nextLink %>" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800" title="Next month">→</a>
+    </div>
+  </header>
+
+  <!-- quick add -->
+  <% if (tabs.length) { %>
+  <section class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <form method="post" action="/tasks" class="flex flex-wrap items-end gap-3">
+      <div class="min-w-[160px] flex-1">
+        <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">New task</label>
+        <input type="text" name="title" required maxlength="200" placeholder="Task title…" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+      </div>
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Tab</label>
+        <select name="tab_id" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+          <% tabs.forEach(tab => { %><option value="<%= tab.id %>"><%= tab.parent_id ? '↳ ' : '' %><%= tab.name %></option><% }) %>
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Start</label>
+        <input type="datetime-local" name="start" value="<%= prefillDate ? prefillDate + 'T09:00' : '' %>" class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" title="Optional — the task spans until its due date">
+      </div>
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Due</label>
+        <input type="datetime-local" name="due" value="<%= prefillDate ? prefillDate + 'T09:00' : '' %>" class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+      </div>
+      <input type="hidden" class="tz-offset" name="tz_offset" value="0">
+      <button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Add</button>
+    </form>
+  </section>
+  <% } else { %>
+  <p class="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+    Create a tab on the <a href="/home" class="font-medium text-indigo-600 hover:underline">Home page</a> first, then add tasks here.
+  </p>
+  <% } %>
+
+  <!-- calendar sync -->
+  <% if (feedUrl) { %>
+  <details class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <summary class="cursor-pointer list-none text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">🔗 Sync with Apple / Google Calendar</summary>
+    <div class="mt-3 text-sm text-slate-600 dark:text-slate-300">
+      <p>Subscribe to this iCal feed to see your task deadlines in Apple Calendar or Google Calendar. It is one-way: planner → your calendar.</p>
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <input type="text" readonly value="<%= feedUrl %>" class="min-w-0 flex-1 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+        <button type="button" data-copy="<%= feedUrl %>" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Copy</button>
+        <form method="post" action="/calendar/reset-token" data-confirm="Create a new calendar link? The old one stops working.">
+          <button class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800">New link</button>
+        </form>
+      </div>
+      <ul class="mt-3 list-disc space-y-1 pl-5 text-xs text-slate-400 dark:text-slate-500">
+        <li><strong>Apple Calendar:</strong> File → New Calendar Subscription, paste the link (iPhone: Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar).</li>
+        <li><strong>Google Calendar:</strong> Other calendars → From URL, paste the link.</li>
+        <li>Google fetches the link from the internet — the app must be reachable at a public URL, not just localhost.</li>
+      </ul>
+    </div>
+  </details>
+  <% } %>
+
+  <!-- month grid -->
+  <section class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div class="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+      <div class="py-2">Mon</div><div class="py-2">Tue</div><div class="py-2">Wed</div><div class="py-2">Thu</div><div class="py-2">Fri</div><div class="py-2">Sat</div><div class="py-2">Sun</div>
+    </div>
+    <div class="grid grid-cols-7">
+      <% grid.forEach(cell => { %>
+      <div class="min-h-[92px] border-b border-r border-slate-100 p-1.5 text-xs dark:border-slate-800/60 <%= cell.inMonth ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 text-slate-400 dark:bg-slate-950 dark:text-slate-600' %>">
+        <div class="flex items-center justify-between">
+          <span class="<%= cell.key === todayKey ? 'flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 font-semibold text-white' : 'font-medium' %>"><%= cell.day %></span>
+          <% if (cell.inMonth) { %>
+            <a href="/calendar?y=<%= y %>&m=<%= m %>&day=<%= cell.key %>" class="text-slate-300 hover:text-indigo-600 dark:text-slate-600 dark:hover:text-indigo-400" title="Add task on this day">＋</a>
+          <% } %>
+        </div>
+        <div class="mt-1 space-y-1">
+          <% cell.tasks.slice(0, 4).forEach(t => { %>
+          <a href="/tabs/<%= t.tab_id %>" class="block truncate rounded px-1 py-0.5 leading-tight <%= t.done ? 'bg-slate-50 text-slate-400 line-through dark:bg-slate-800/50 dark:text-slate-500' : (t.overdue ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' : 'bg-slate-100 text-slate-700 hover:bg-indigo-50 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-indigo-950') %>">
+            <span class="mr-1 inline-block h-1.5 w-1.5 rounded-full
+              <% if (t.color === 'indigo') { %>bg-indigo-500<% } else if (t.color === 'emerald') { %>bg-emerald-500<% } else if (t.color === 'rose') { %>bg-rose-500<% } else if (t.color === 'amber') { %>bg-amber-500<% } else if (t.color === 'sky') { %>bg-sky-500<% } else { %>bg-violet-500<% } %>"></span><span class="text-[10px] text-slate-400 dark:text-slate-500"><%= t.time %></span><% if (t.isDue && !t.isStart) { %><span class="text-[10px]">⏰</span><% } else if (t.isStart && !t.isDue) { %><span class="text-[10px]">▶</span><% } %> <%= t.title %>
+          </a>
+          <% }) %>
+          <% if (cell.tasks.length > 4) { %><p class="px-1 text-[10px] text-slate-400 dark:text-slate-500">+<%= cell.tasks.length - 4 %> more</p><% } %>
+        </div>
+      </div>
+      <% }) %>
+    </div>
+  </section>
+</main>
+<%- include('partials/footer') %>

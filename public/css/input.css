@@ -1,0 +1,9 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+@source "../../views";
+@source "../js";
+
+/* Native controls (date pickers, scrollbars) follow the dark theme. */
+html.dark {
+  color-scheme: dark;
+}

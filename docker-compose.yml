@@ -1,0 +1,27 @@
+services:
+  planner:
+    build: .
+    container_name: planner
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - planner_data:/app/data
+    environment:
+      PORT: "3000"
+      BASE_URL: "${BASE_URL:-http://localhost:3000}"
+      SESSION_SECRET: "${SESSION_SECRET:-dev-secret-change-me}"
+      REMIND_HOURS: "${REMIND_HOURS:-24}"
+      CAL_REMIND_OFFSET: "${CAL_REMIND_OFFSET:-P2D}"
+      CRON_SCHEDULE: "${CRON_SCHEDULE:-0 8 * * *}"
+      TZ: "${TZ:-UTC}"
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
+      SMTP_HOST: "${SMTP_HOST:-}"
+      SMTP_PORT: "${SMTP_PORT:-587}"
+      SMTP_USER: "${SMTP_USER:-}"
+      SMTP_PASS: "${SMTP_PASS:-}"
+      SMTP_FROM: "${SMTP_FROM:-Planner <noreply@planner.local>}"
+    restart: unless-stopped
+
+volumes:
+  planner_data:
