@@ -333,12 +333,30 @@ app.post('/register', (req, res, next) => {
   req.login(user, (e) => (e ? next(e) : res.redirect('/home')));
 });
 
+/* Host part of BASE_URL ('' when unset or invalid). */
+function baseUrlHost() {
+  try { return new URL(String(process.env.BASE_URL || '')).host; } catch (_) { return ''; }
+}
+
 app.get('/auth/google', (req, res, next) => {
   if (!googleEnabled) {
     setFlash(req, 'error', 'Google login is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.');
     return res.redirect('/login');
   }
-  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+  /* Build the OAuth redirect_uri for THIS request. Normally it comes from
+     BASE_URL, but if BASE_URL still points at localhost (a .env copied from
+     a dev machine), Google would reject the login with redirect_uri_mismatch.
+     In that case fall back to the host the user is actually browsing, so the
+     redirect_uri matches the URL registered in Google Cloud Console. */
+  const requestHost = String(req.get('host') || '');
+  const configuredHost = baseUrlHost();
+  const localHost = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|::1)(:\d+)?$/i;
+  const callbackBase = (!configuredHost || (localHost.test(configuredHost) && requestHost && !localHost.test(requestHost)))
+    ? `${req.protocol}://${requestHost}`
+    : BASE_URL;
+  const callbackURL = callbackBase.replace(/\/+$/, '') + '/auth/google/callback';
+  console.log(`[auth] Google authorize → redirect_uri: ${callbackURL}`);
+  passport.authenticate('google', { scope: ['profile', 'email'], callbackURL })(req, res, next);
 });
 
 app.get('/auth/google/callback', (req, res, next) => {
