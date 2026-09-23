@@ -670,8 +670,8 @@ app.get('/feed/:token.ics', (req, res) => {
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'X-WR-CALNAME:Planner',
-    'REFRESH-INTERVAL;VALUE=DURATION:PT1H',
-    'X-PUBLISHED-TTL:PT1H'
+    'REFRESH-INTERVAL;VALUE=DURATION:PT1M',
+    'X-PUBLISHED-TTL:PT1M'
   ];
   for (const t of tasks) {
     const anchor = t.start_at || t.due_at;
