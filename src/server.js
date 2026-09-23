@@ -330,10 +330,14 @@ app.get('/auth/google', (req, res, next) => {
 });
 
 app.get('/auth/google/callback', (req, res, next) => {
-  passport.authenticate('google', (err, user) => {
-    if (err) return next(err);
+  passport.authenticate('google', (err, user, info) => {
+    if (err) {
+      console.error('[google] callback error:', err && err.stack ? err.stack : err);
+      return next(err);
+    }
     if (!user) {
-      setFlash(req, 'error', 'Google sign-in failed.');
+      console.error('[google] authentication failed:', info);
+      setFlash(req, 'error', 'Google sign-in failed: ' + (info && info.message ? info.message : 'unknown reason'));
       return res.redirect('/login');
     }
     req.logIn(user, (e) => (e ? next(e) : res.redirect('/home')));
@@ -679,7 +683,7 @@ app.get('/feed/:token.ics', (req, res) => {
 
 app.use((req, res) => res.status(404).send('Not found'));
 app.use((err, req, res, next) => {
-  console.error(err);
+  console.error(`[server] error on ${req.method} ${req.originalUrl}:`, err && err.stack ? err.stack : err);
   res.status(500).send('Something went wrong.');
 });
 

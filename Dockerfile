@@ -23,6 +23,6 @@ COPY --from=build /app/views ./views
 COPY --from=build /app/src ./src
 RUN mkdir -p /app/data && chown -R node:node /app
 USER node
-ENV PORT=3000
-EXPOSE 3000
+ENV PORT=3030
+EXPOSE 3030
 CMD ["node", "src/server.js"]
